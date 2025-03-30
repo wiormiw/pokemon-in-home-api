@@ -29,19 +29,16 @@ public class SecurityConfig {
     private final JwtAuthorizationFilter jwtAuthorizationFilter;
     private final AuthorizationFilter authorizationFilter;
     private final JwtAccessDeniedHandler jwtAccessDeniedHandler;
-    private final UserDetailsService userDetailsService;
 
     @Autowired
     public SecurityConfig(CorsConfig corsConfig,
                           JwtAuthorizationFilter jwtAuthorizationFilter,
                           AuthorizationFilter authorizationFilter,
-                          JwtAccessDeniedHandler jwtAccessDeniedHandler,
-                          @Qualifier("userDetailsService") UserDetailsService userDetailsService) {
+                          JwtAccessDeniedHandler jwtAccessDeniedHandler) {
         this.corsConfig = corsConfig;
         this.jwtAuthorizationFilter = jwtAuthorizationFilter;
         this.authorizationFilter = authorizationFilter;
         this.jwtAccessDeniedHandler = jwtAccessDeniedHandler;
-        this.userDetailsService = userDetailsService;
     }
 
     @Bean
@@ -66,6 +63,7 @@ public class SecurityConfig {
         return http.build();
     }
 
+    @Bean
     public AuthenticationManager authenticationManager(AuthenticationConfiguration authenticationConfiguration) throws Exception {
         return authenticationConfiguration.getAuthenticationManager();
     }

@@ -1,7 +1,6 @@
 package com.wiormiw.pokemon_in_home.exception;
 
 import com.wiormiw.pokemon_in_home.dto.http.HttpResponse;
-import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ControllerAdvice;
@@ -18,7 +17,7 @@ import static org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR;
 public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
     @ExceptionHandler({Exception.class, RuntimeException.class})
-    public ResponseEntity<HttpResponse<?>> handleException(Exception e, HttpServletRequest r) {
+    public ResponseEntity<HttpResponse<?>> handleException(Exception e) {
         return createHttpErrorResponse(INTERNAL_SERVER_ERROR, GENERIC_ERROR_RESPONSE_MESSAGE, e);
     }
 
