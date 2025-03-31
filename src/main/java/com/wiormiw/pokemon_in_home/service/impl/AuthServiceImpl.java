@@ -18,6 +18,8 @@ import org.springframework.stereotype.Service;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
+import static com.wiormiw.pokemon_in_home.service.constant.ServiceConstant.*;
+
 @Service
 @RequiredArgsConstructor
 public class AuthServiceImpl implements AuthService {
@@ -31,11 +33,11 @@ public class AuthServiceImpl implements AuthService {
 
     public AuthResponseDTO register(AuthRequestDTO request) {
         if (userRepository.existsByUsername(request.username())) {
-            throw new RuntimeException("Username already exists");
+            throw new RuntimeException(USERNAME_EXIST);
         }
 
         Role playerRole = roleRepository.findByName(Role.RoleType.PLAYER)
-                .orElseThrow(() -> new IllegalStateException("Default role not found"));
+                .orElseThrow(() -> new IllegalStateException(ROLE_NOT_FOUND));
 
         User user = new User();
         user.setUsername(request.username());
@@ -55,25 +57,25 @@ public class AuthServiceImpl implements AuthService {
         );
 
         User user = userRepository.findByUsername(request.username())
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new RuntimeException(USER_NOT_FOUND));
 
         return generateTokens(user);
     }
 
     public AuthResponseDTO refreshToken(String refreshToken) {
-        if (!jwtProvider.isTokenValid(jwtProvider.getSubject(refreshToken), refreshToken)) {
-            throw new RuntimeException("Invalid refresh token");
+        if (!jwtProvider.isTokenValid(jwtProvider.getSubject(refreshToken), refreshToken, "refresh_token")) {
+            throw new RuntimeException(INVALID_REFRESH_TOKEN);
         }
 
         String username = jwtProvider.getSubject(refreshToken);
         String storedToken = redisTemplate.opsForValue().get("refresh:" + username);
 
         if (storedToken == null || !storedToken.equals(refreshToken)) {
-            throw new RuntimeException("Refresh token not found or expired");
+            throw new RuntimeException(NOT_FOUND_OR_EXPIRED_REFRESH_TOKEN);
         }
 
         User user = userRepository.findByUsername(username)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new RuntimeException(USER_NOT_FOUND));
 
         AuthResponseDTO response = generateTokens(user);
 
@@ -93,14 +95,14 @@ public class AuthServiceImpl implements AuthService {
         redisTemplate.opsForValue().set(
                 "refresh:" + user.getUsername(),
                 refreshToken,
-                jwtProvider.getExpirationDate(refreshToken).getTime() - System.currentTimeMillis(),
+                jwtProvider.getExpirationTimeInMillis(refreshToken),
                 TimeUnit.MILLISECONDS
         );
 
         return new AuthResponseDTO(
                 accessToken,
                 refreshToken,
-                jwtProvider.getExpirationDate(accessToken).getTime()
+                jwtProvider.getExpirationTimeInMillis(accessToken)
         );
     }
 }

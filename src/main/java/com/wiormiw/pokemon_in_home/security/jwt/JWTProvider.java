@@ -3,9 +3,7 @@ package com.wiormiw.pokemon_in_home.security.jwt;
 import com.auth0.jwt.JWT;
 import com.auth0.jwt.interfaces.DecodedJWT;
 import com.auth0.jwt.interfaces.JWTVerifier;
-import com.auth0.jwt.algorithms.Algorithm;
 import com.auth0.jwt.exceptions.JWTVerificationException;
-import com.wiormiw.pokemon_in_home.domain.entity.Role;
 import com.wiormiw.pokemon_in_home.domain.entity.User;
 import jakarta.servlet.http.HttpServletRequest;
 import org.apache.commons.lang3.StringUtils;
@@ -17,6 +15,7 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.stereotype.Component;
 
+import java.nio.charset.StandardCharsets;
 import java.util.Date;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -37,10 +36,11 @@ public class JWTProvider {
                 .withIssuedAt(new Date())
                 .withSubject(user.getUsername())
                 .withClaim("roles", user.getRoles().stream()
-                        .map(Role::getName)
+                        .map(role -> ROLE_PREFIX + role.getName())
                         .collect(Collectors.toList()))
+                .withClaim("token_type", "access")
                 .withExpiresAt(new Date(System.currentTimeMillis() + EXPIRATION_TIME))
-                .sign(HMAC512(secret.getBytes()));
+                .sign(HMAC512(secret.getBytes(StandardCharsets.UTF_8)));
     }
 
     public String generateRefreshToken(User user) {
@@ -51,7 +51,7 @@ public class JWTProvider {
                 .withSubject(user.getUsername())
                 .withClaim("token_type", "refresh_token")
                 .withExpiresAt(new Date(System.currentTimeMillis() + REFRESH_EXPIRATION_TIME))
-                .sign(HMAC512(secret.getBytes()));
+                .sign(HMAC512(secret.getBytes(StandardCharsets.UTF_8)));
     }
 
     // getting authorities from the token
@@ -62,51 +62,55 @@ public class JWTProvider {
                 .collect(Collectors.toList());
     }
 
-    public Authentication getAuthentication(String username,
-                                            List<GrantedAuthority> authorities,
-                                            HttpServletRequest request) {
-        UsernamePasswordAuthenticationToken userPasswordAuthToken =
+    public Authentication getAuthentication(
+            String username,
+            List<GrantedAuthority> authorities,
+            HttpServletRequest request) {
+        UsernamePasswordAuthenticationToken authToken =
                 new UsernamePasswordAuthenticationToken(username, null, authorities);
-        userPasswordAuthToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-        return userPasswordAuthToken;
+        authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+        return authToken;
     }
 
-    public boolean isTokenValid(String username, String token) {
-        JWTVerifier verifier = getJWTVerifier();
-        return StringUtils.isNotEmpty(username) &&
-                username.equals(getSubject(token)) &&
-                !isTokenExpired(verifier, token);
+    public boolean isTokenValid(String username, String token, String expectedTokenType) {
+        try {
+            JWTVerifier verifier = getJWTVerifier();
+            DecodedJWT decodedJWT = verifier.verify(token);
+            return StringUtils.isNotEmpty(username) &&
+                    username.equals(decodedJWT.getSubject()) &&
+                    decodedJWT.getClaim("token_type").asString().equals(expectedTokenType) &&
+                    !isTokenExpired(decodedJWT);
+        } catch (JWTVerificationException e) {
+            return false;
+        }
     }
 
     public String getSubject(String token) {
-        JWTVerifier verifier = getJWTVerifier();
-        return verifier.verify(token).getSubject();
+        DecodedJWT decodedJWT = getJWTVerifier().verify(token);
+        return decodedJWT.getSubject();
     }
 
-    private boolean isTokenExpired(JWTVerifier verifier, String token) {
-        Date expiration = verifier.verify(token).getExpiresAt();
-        return expiration.before(new Date());
+    public long getExpirationTimeInMillis(String token) {
+        try {
+            DecodedJWT decodedJWT = getJWTVerifier().verify(token);
+            return decodedJWT.getExpiresAt().getTime();
+        } catch (JWTVerificationException e) {
+            throw new JWTVerificationException(INVALID_TOKEN_MESSAGE);
+        }
+    }
+
+    private boolean isTokenExpired(DecodedJWT decodedJWT) {
+        return decodedJWT.getExpiresAt().before(new Date());
     }
 
     private List<String> getClaimsFromToken(String token) {
-        JWTVerifier verifier = getJWTVerifier();
-        DecodedJWT decodedJWT = verifier.verify(token);
+        DecodedJWT decodedJWT = getJWTVerifier().verify(token);
         return decodedJWT.getClaim("roles").asList(String.class);
     }
 
     private JWTVerifier getJWTVerifier() {
-        try {
-            Algorithm algorithm = HMAC512(secret);
-            return JWT.require(algorithm)
-                    .withIssuer(ISSUER)
-                    .build();
-        } catch (JWTVerificationException exception) {
-            throw new JWTVerificationException("Token cannot be verified");
-        }
-    }
-
-    public Date getExpirationDate(String token) {
-        JWTVerifier verifier = getJWTVerifier();
-        return verifier.verify(token).getExpiresAt();
+        return JWT.require(HMAC512(secret.getBytes(StandardCharsets.UTF_8)))
+                .withIssuer(ISSUER)
+                .build();
     }
 }

@@ -15,12 +15,13 @@ import static org.springframework.http.HttpStatus.UNAUTHORIZED;
 import static org.springframework.http.MediaType.APPLICATION_JSON_VALUE;
 
 @Component
-public class JwtAuthorizationFilter implements AuthenticationEntryPoint {
+public class JwtAuthenticationEntryPoint implements AuthenticationEntryPoint {
 
     @Override
-    public void commence(HttpServletRequest request,
-                         HttpServletResponse response,
-                         AuthenticationException exception) throws IOException {
+    public void commence(
+            HttpServletRequest request,
+            HttpServletResponse response,
+            AuthenticationException exception) throws IOException {
 
         HttpResponse httpResponse = HttpResponse.builder()
                 .statusCode(UNAUTHORIZED.value())

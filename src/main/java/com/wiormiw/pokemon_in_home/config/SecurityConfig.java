@@ -1,10 +1,10 @@
 package com.wiormiw.pokemon_in_home.config;
 
 import com.wiormiw.pokemon_in_home.security.constant.SecurityConstant;
-import com.wiormiw.pokemon_in_home.security.filter.JwtAuthorizationFilter;
+import com.wiormiw.pokemon_in_home.security.filter.JwtAuthenticationEntryPoint;
 import com.wiormiw.pokemon_in_home.security.filter.AuthorizationFilter;
 import com.wiormiw.pokemon_in_home.security.filter.JwtAccessDeniedHandler;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -17,27 +17,18 @@ import org.springframework.security.web.SecurityFilterChain;
 
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
+import static com.wiormiw.pokemon_in_home.security.constant.SecurityConstant.ROLE_PREFIX;
 import static org.springframework.security.config.http.SessionCreationPolicy.STATELESS;
 
 @Configuration
 @EnableWebSecurity
+@RequiredArgsConstructor
 public class SecurityConfig {
 
     private final CorsConfig corsConfig;
-    private final JwtAuthorizationFilter jwtAuthorizationFilter;
+    private final JwtAuthenticationEntryPoint authenticationEntryPoint;
     private final AuthorizationFilter authorizationFilter;
-    private final JwtAccessDeniedHandler jwtAccessDeniedHandler;
-
-    @Autowired
-    public SecurityConfig(CorsConfig corsConfig,
-                          JwtAuthorizationFilter jwtAuthorizationFilter,
-                          AuthorizationFilter authorizationFilter,
-                          JwtAccessDeniedHandler jwtAccessDeniedHandler) {
-        this.corsConfig = corsConfig;
-        this.jwtAuthorizationFilter = jwtAuthorizationFilter;
-        this.authorizationFilter = authorizationFilter;
-        this.jwtAccessDeniedHandler = jwtAccessDeniedHandler;
-    }
+    private final JwtAccessDeniedHandler accessDeniedHandler;
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
@@ -48,13 +39,13 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(SecurityConstant.PUBLIC_URLS).permitAll()
                         .requestMatchers("/api/auth/**").permitAll()
-                        .requestMatchers("/api/admin/**").hasRole("ADMIN")
-                        .requestMatchers("/api/player/**").hasRole("PLAYER")
+                        .requestMatchers("/api/admin/**").hasAuthority(ROLE_PREFIX + "ADMIN")
+                        .requestMatchers("/api/player/**").hasAuthority(ROLE_PREFIX + "PLAYER")
                         .anyRequest().authenticated()
                 )
-                .exceptionHandling(exceptionHandling -> exceptionHandling
-                        .authenticationEntryPoint(jwtAuthorizationFilter)
-                        .accessDeniedHandler(jwtAccessDeniedHandler)
+                .exceptionHandling(exception -> exception
+                        .authenticationEntryPoint(authenticationEntryPoint)
+                        .accessDeniedHandler(accessDeniedHandler)
                 )
                 .addFilterBefore(authorizationFilter, UsernamePasswordAuthenticationFilter.class);
 
@@ -62,8 +53,8 @@ public class SecurityConfig {
     }
 
     @Bean
-    public AuthenticationManager authenticationManager(AuthenticationConfiguration authenticationConfiguration) throws Exception {
-        return authenticationConfiguration.getAuthenticationManager();
+    public AuthenticationManager authenticationManager(AuthenticationConfiguration config) throws Exception {
+        return config.getAuthenticationManager();
     }
 
     @Bean
