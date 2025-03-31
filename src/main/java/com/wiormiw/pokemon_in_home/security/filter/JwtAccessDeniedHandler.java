@@ -18,9 +18,10 @@ import static org.springframework.http.MediaType.APPLICATION_JSON_VALUE;
 public class JwtAccessDeniedHandler implements AccessDeniedHandler {
 
     @Override
-    public void handle(HttpServletRequest request,
-                       HttpServletResponse response,
-                       AccessDeniedException exception) throws IOException {
+    public void handle(
+            HttpServletRequest request,
+            HttpServletResponse response,
+            AccessDeniedException exception) throws IOException {
 
         HttpResponse httpResponse = HttpResponse.builder()
                 .statusCode(FORBIDDEN.value())
